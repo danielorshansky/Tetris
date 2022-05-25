@@ -1,8 +1,9 @@
 use rand::Rng;
 use std::time::Instant;
+use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::Scancode;
 
 const TILE_SIZE: u8 = 40;
 const SIZE: [i32; 2] = [10, 20];
@@ -54,32 +55,62 @@ fn main() {
     let mut ticks = 0;
     let mut rotate = 0;
     let mut rotate_ticks = 0;
+    let mut shift = 0;
+    let mut shift_ticks = 0;
+    let mut gravity; // frames per tile
     'running: loop {
         for event in events.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'running,
-                Event::KeyDown { keycode: Some(Keycode::S), .. } => {
-                    if piece.id != 4 && rotate_ticks == 0 {
-                        rotate = 1;
-                        rotate_ticks = 20;
-                    }
-                },
-                Event::KeyDown { keycode: Some(Keycode::D), .. } => {
-                    if piece.id != 4 && rotate_ticks == 0 {
-                        rotate = 2;
-                        rotate_ticks = 20;
-                    }
-                },
-                Event::KeyUp { keycode: Some(Keycode::S), .. } | Event::KeyUp { keycode: Some(Keycode::D), .. } => rotate_ticks = 0,
                 _ => {}
             };
+        }
+
+        if events.keyboard_state().is_scancode_pressed(Scancode::Up) && piece.id != 4 {
+            if rotate_ticks == 0 {
+                rotate = 1;
+                rotate_ticks = 20;
+            }
+        } else if events.keyboard_state().is_scancode_pressed(Scancode::RCtrl) && piece.id != 4 {
+            if rotate_ticks == 0 {
+                rotate = 2;
+                rotate_ticks = 20;
+            }
+        } else {
+            rotate_ticks = 0;
+        }
+        if events.keyboard_state().is_scancode_pressed(Scancode::Left) {
+            if shift_ticks == 0 {
+                shift = -1;
+                shift_ticks = 10;
+            }
+        } else if events.keyboard_state().is_scancode_pressed(Scancode::Right) {
+            if shift_ticks == 0 {
+                shift = 1;
+                shift_ticks = 10;
+            }
+        } else {
+            shift = 0;
+            shift_ticks = 0;
+        }
+        if events.keyboard_state().is_scancode_pressed(Scancode::Down) {
+            gravity = 6;
+        } else {
+            gravity = 48;
         }
 
         if time.elapsed().as_nanos() >= 100_000_000 / 6 {
             time = Instant::now();
 
-            if ticks % 48 == 0 && ticks > 0 {
+            if ticks % gravity == 0 && ticks > 0 {
                 position[1] += 1;
+            }
+
+            if shift_ticks > 0 {
+                if shift_ticks == 10 {
+                    position[0] += shift;
+                }
+                shift_ticks -= 1;
             }
 
             if rotate_ticks > 0 {
@@ -99,7 +130,7 @@ fn main() {
 
             canvas.set_draw_color(Color::RGB(0, 0, 255));
             for point in piece.points.iter() {
-                canvas.fill_rect(sdl2::rect::Rect::new((position[0] + point[0]) * i32::from(TILE_SIZE), (position[1] + point[1]) * i32::from(TILE_SIZE), TILE_SIZE.into(), TILE_SIZE.into())).unwrap();
+                canvas.fill_rect(Rect::new((position[0] + point[0]) * i32::from(TILE_SIZE), (position[1] + point[1]) * i32::from(TILE_SIZE), TILE_SIZE.into(), TILE_SIZE.into())).unwrap();
             }
 
             canvas.present();
