@@ -56,7 +56,7 @@ fn main() {
     let mut rotate_ticks = 0;
     let mut shift = 0;
     let mut shift_ticks = 0;
-    let mut map: [[u8; SIZE[0]]; SIZE[1]] = [[0; SIZE[0]]; SIZE[1]];
+    //let mut map: [[u8; SIZE[0]]; SIZE[1]] = [[0; SIZE[0]]; SIZE[1]];
     let mut gravity; // frames per tile
     'running: loop {
         for event in events.poll_iter() {
@@ -66,26 +66,26 @@ fn main() {
             };
         }
 
-        if events.keyboard_state().is_scancode_pressed(Scancode::Up) && piece.id != 4 && rotate <= 0 && rotate_ticks == 0 {
+        if events.keyboard_state().is_scancode_pressed(Scancode::Up) && piece.id != 4 {
             rotate = 1;
-            rotate_ticks = 20;
         }
-        if events.keyboard_state().is_scancode_pressed(Scancode::RCtrl) && piece.id != 4 && rotate == 0 && rotate_ticks == 0 {
+        if events.keyboard_state().is_scancode_pressed(Scancode::RCtrl) && piece.id != 4 && rotate >= 0 {
             rotate -= 1;
-            rotate_ticks = 20;
         }
-        if rotate == 0 && rotate_ticks > 0 && rotate_ticks < 20 {
+        if rotate != 0 && rotate_ticks == 0 {
+            rotate_ticks = 20;
+        } else if rotate == 0 {
             rotate_ticks = 0;
         }
-        if events.keyboard_state().is_scancode_pressed(Scancode::Left) && shift_ticks == 0 {
+        if events.keyboard_state().is_scancode_pressed(Scancode::Left) {
             shift = -1;
-            shift_ticks = 10;
         }
-        if events.keyboard_state().is_scancode_pressed(Scancode::Right) && shift_ticks == 0 {
+        if events.keyboard_state().is_scancode_pressed(Scancode::Right) && shift <= 0 {
             shift += 1;
-            shift_ticks = 10;
         }
-        if shift == 0 && shift_ticks > 0 && shift_ticks < 10 {
+        if shift != 0 && shift_ticks == 0 {
+            shift_ticks = 10;
+        } else if shift == 0 {
             shift_ticks = 0;
         }
         if events.keyboard_state().is_scancode_pressed(Scancode::Down) {
@@ -113,7 +113,7 @@ fn main() {
                 if rotate == 1 && rotate_ticks == 20 {
                     rotate_cw(&mut piece);
                 }
-                if rotate == 2 && rotate_ticks == 20 {
+                if rotate == -1 && rotate_ticks == 20 {
                     rotate_ccw(&mut piece);
                 }
                 rotate = 0;
