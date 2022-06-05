@@ -6,16 +6,16 @@ use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
 
 const TILE_SIZE: u8 = 40;
-const SIZE: [i32; 2] = [10, 20];
+const SIZE: [usize; 2] = [10, 20];
 
 struct Piece {
     points: Vec<[i32; 2]>,
-    reach: [i32; 4], // left, up, right, down; how many pieces extend from "center" point
+    reach: [usize; 4], // left, up, right, down; how many pieces extend from "center" point
     id: u8
 }
 
 fn create_piece(piece_id: u8) -> Option<Piece> {
-    match piece_id {
+    match piece_id { // positions based around center of piece
         0 => Some(Piece { points: vec![[-1, 0], [0, 0], [1, 0], [2, 0]], reach: [1, 0, 3, 1], id: 0 }),
         1 => Some(Piece { points: vec![[-1, -1], [0, -1], [1, -1], [0, 0]], reach: [1, 1, 2, 1], id: 1 }),
         2 => Some(Piece { points: vec![[-1, 0], [0, 0], [1, 0], [-1, 1]], reach: [1, 0, 2, 2], id: 2 }),
@@ -48,8 +48,7 @@ fn main() {
     
     let mut rng = rand::thread_rng();
     let mut piece = create_piece(rng.gen_range(0..5)).unwrap();
-    let mut position: [i32; 2] = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)), piece.reach[1]];
-    
+    let mut position: [i32; 2] = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)).try_into().unwrap(), piece.reach[1].try_into().unwrap()];
     let mut events = context.event_pump().unwrap();
     let mut time = Instant::now();
     let mut ticks = 0;
@@ -57,6 +56,7 @@ fn main() {
     let mut rotate_ticks = 0;
     let mut shift = 0;
     let mut shift_ticks = 0;
+    let mut map: [[u8; SIZE[0]]; SIZE[1]] = [[0; SIZE[0]]; SIZE[1]];
     let mut gravity; // frames per tile
     'running: loop {
         for event in events.poll_iter() {
@@ -66,31 +66,26 @@ fn main() {
             };
         }
 
-        if events.keyboard_state().is_scancode_pressed(Scancode::Up) && piece.id != 4 {
-            if rotate_ticks == 0 {
-                rotate = 1;
-                rotate_ticks = 20;
-            }
-        } else if events.keyboard_state().is_scancode_pressed(Scancode::RCtrl) && piece.id != 4 {
-            if rotate_ticks == 0 {
-                rotate = 2;
-                rotate_ticks = 20;
-            }
-        } else {
+        if events.keyboard_state().is_scancode_pressed(Scancode::Up) && piece.id != 4 && rotate <= 0 && rotate_ticks == 0 {
+            rotate = 1;
+            rotate_ticks = 20;
+        }
+        if events.keyboard_state().is_scancode_pressed(Scancode::RCtrl) && piece.id != 4 && rotate == 0 && rotate_ticks == 0 {
+            rotate -= 1;
+            rotate_ticks = 20;
+        }
+        if rotate == 0 && rotate_ticks > 0 && rotate_ticks < 20 {
             rotate_ticks = 0;
         }
-        if events.keyboard_state().is_scancode_pressed(Scancode::Left) {
-            if shift_ticks == 0 {
-                shift = -1;
-                shift_ticks = 10;
-            }
-        } else if events.keyboard_state().is_scancode_pressed(Scancode::Right) {
-            if shift_ticks == 0 {
-                shift = 1;
-                shift_ticks = 10;
-            }
-        } else {
-            shift = 0;
+        if events.keyboard_state().is_scancode_pressed(Scancode::Left) && shift_ticks == 0 {
+            shift = -1;
+            shift_ticks = 10;
+        }
+        if events.keyboard_state().is_scancode_pressed(Scancode::Right) && shift_ticks == 0 {
+            shift += 1;
+            shift_ticks = 10;
+        }
+        if shift == 0 && shift_ticks > 0 && shift_ticks < 10 {
             shift_ticks = 0;
         }
         if events.keyboard_state().is_scancode_pressed(Scancode::Down) {
@@ -110,18 +105,18 @@ fn main() {
                 if shift_ticks == 10 {
                     position[0] += shift;
                 }
+                shift = 0;
                 shift_ticks -= 1;
             }
 
             if rotate_ticks > 0 {
                 if rotate == 1 && rotate_ticks == 20 {
                     rotate_cw(&mut piece);
-                    rotate = 0;
                 }
                 if rotate == 2 && rotate_ticks == 20 {
                     rotate_ccw(&mut piece);
-                    rotate = 0;
                 }
+                rotate = 0;
                 rotate_ticks -= 1;
             }
 
