@@ -9,18 +9,18 @@ const TILE_SIZE: u8 = 40;
 const SIZE: [usize; 2] = [10, 20];
 
 struct Piece {
-    points: Vec<[i32; 2]>,
+    points: [[i32; 2]; 4],
     reach: [usize; 4], // left, up, right, down; how many pieces extend from "center" point
     id: u8
 }
 
 fn create_piece(piece_id: u8) -> Option<Piece> {
     match piece_id { // positions based around center of piece
-        0 => Some(Piece { points: vec![[-1, 0], [0, 0], [1, 0], [2, 0]], reach: [1, 0, 3, 1], id: 0 }),
-        1 => Some(Piece { points: vec![[-1, -1], [0, -1], [1, -1], [0, 0]], reach: [1, 1, 2, 1], id: 1 }),
-        2 => Some(Piece { points: vec![[-1, 0], [0, 0], [1, 0], [-1, 1]], reach: [1, 0, 2, 2], id: 2 }),
-        3 => Some(Piece { points: vec![[0, -1], [1, -1], [-1, 0], [0, 0]], reach: [1, 1, 2, 2], id: 3 }),
-        4 => Some(Piece { points: vec![[0, 0], [1, 0], [0, 1], [1, 1]], reach: [0, 0, 2, 2], id: 4 }),
+        0 => Some(Piece { points: [[-1, 0], [0, 0], [1, 0], [2, 0]], reach: [1, 0, 3, 1], id: 0 }),
+        1 => Some(Piece { points: [[-1, -1], [0, -1], [1, -1], [0, 0]], reach: [1, 1, 2, 1], id: 1 }),
+        2 => Some(Piece { points: [[-1, 0], [0, 0], [1, 0], [-1, 1]], reach: [1, 0, 2, 2], id: 2 }),
+        3 => Some(Piece { points: [[0, -1], [1, -1], [-1, 0], [0, 0]], reach: [1, 1, 2, 2], id: 3 }),
+        4 => Some(Piece { points: [[0, 0], [1, 0], [0, 1], [1, 1]], reach: [0, 0, 2, 2], id: 4 }),
         _ => None
     }
 }
