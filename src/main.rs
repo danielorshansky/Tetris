@@ -124,7 +124,7 @@ fn main() {
             }
             corrected_pos = [position[0] + corrections[piece.rotation][0], position[1] + corrections[piece.rotation][1]];
             
-            if position[1] + i32::try_from(piece.reach[3]).unwrap() >= i32::try_from(SIZE[1]).unwrap() {
+            if position[1] + piece.reach[3] as i32 >= SIZE[1] as i32 {
                 for point in piece.points {
                     map[usize::try_from(corrected_pos[1] + point[1]).unwrap()][usize::try_from(corrected_pos[0] + point[0]).unwrap()] = 1;
                 }
