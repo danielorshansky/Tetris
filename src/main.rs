@@ -11,21 +11,23 @@ const SIZE: [usize; 2] = [10, 20];
 struct Piece {
     points: [[i32; 2]; 4],
     reach: [usize; 4], // left, up, right, down; how many pieces extend from "center" point
-    id: u8
+    id: u8,
+    rotation: usize
 }
 
 fn create_piece(piece_id: u8) -> Option<Piece> {
     match piece_id { // positions based around center of piece
-        0 => Some(Piece { points: [[-1, 0], [0, 0], [1, 0], [2, 0]], reach: [1, 0, 3, 1], id: 0 }),
-        1 => Some(Piece { points: [[-1, -1], [0, -1], [1, -1], [0, 0]], reach: [1, 1, 2, 1], id: 1 }),
-        2 => Some(Piece { points: [[-1, 0], [0, 0], [1, 0], [-1, 1]], reach: [1, 0, 2, 2], id: 2 }),
-        3 => Some(Piece { points: [[0, -1], [1, -1], [-1, 0], [0, 0]], reach: [1, 1, 2, 2], id: 3 }),
-        4 => Some(Piece { points: [[0, 0], [1, 0], [0, 1], [1, 1]], reach: [0, 0, 2, 2], id: 4 }),
+        0 => Some(Piece { points: [[-1, 0], [0, 0], [1, 0], [2, 0]], reach: [1, 0, 3, 1], id: 0, rotation: 0 }),
+        1 => Some(Piece { points: [[-1, -1], [0, -1], [1, -1], [0, 0]], reach: [1, 1, 2, 1], id: 1, rotation: 0 }),
+        2 => Some(Piece { points: [[-1, 0], [0, 0], [1, 0], [-1, 1]], reach: [1, 0, 2, 2], id: 2, rotation: 0 }),
+        3 => Some(Piece { points: [[0, -1], [1, -1], [-1, 0], [0, 0]], reach: [1, 1, 2, 1], id: 3, rotation: 0 }),
+        4 => Some(Piece { points: [[0, 0], [1, 0], [0, 1], [1, 1]], reach: [0, 0, 2, 2], id: 4, rotation: 0 }),
         _ => None
     }
 }
 
 fn rotate_cw(piece: &mut Piece) { // rotate clockwise, formula comes from rotation matrices, signs from matrices for y-coord are flipped b/c positive is down
+    piece.rotation = (piece.rotation + 1) % 4;
     for point in piece.points.iter_mut() {
         *point = [-point[1], point[0]];
     }
@@ -33,6 +35,7 @@ fn rotate_cw(piece: &mut Piece) { // rotate clockwise, formula comes from rotati
 }
 
 fn rotate_ccw(piece: &mut Piece) { // rotate counterclockwise, formula comes from rotation matrices, signs from matrices for y-coord are flipped b/c positive is down
+    piece.rotation = (piece.rotation + 4 - 1) % 4;
     for point in piece.points.iter_mut() {
         *point = [point[1], -point[0]];
     }
@@ -48,7 +51,7 @@ fn main() {
     
     let mut rng = rand::thread_rng();
     let mut piece = create_piece(rng.gen_range(0..5)).unwrap();
-    let mut position: [i32; 2] = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)).try_into().unwrap(), piece.reach[1].try_into().unwrap()];
+    let mut position: [i32; 2] = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)) as i32, piece.reach[1] as i32];
     let mut events = context.event_pump().unwrap();
     let mut time = Instant::now();
     let mut ticks = 0;
@@ -56,8 +59,10 @@ fn main() {
     let mut rotate_ticks = 0;
     let mut shift = 0;
     let mut shift_ticks = 0;
-    //let mut map: [[u8; SIZE[0]]; SIZE[1]] = [[0; SIZE[0]]; SIZE[1]];
+    let mut map: [[u8; SIZE[0]]; SIZE[1]] = [[0; SIZE[0]]; SIZE[1]];
     let mut gravity; // frames per tile
+    let corrections = [[0, 0], [-1, 0], [-1, -1], [0, -1]]; // adjusting for rendering bug when rotated
+    let mut corrected_pos;
     'running: loop {
         for event in events.poll_iter() {
             match event {
@@ -94,12 +99,9 @@ fn main() {
             gravity = 48;
         }
 
-        if time.elapsed().as_nanos() >= 100_000_000 / 6 {
+        if time.elapsed().as_nanos() >= 100_000_000 / 6 { // 60 FPS
             time = Instant::now();
-
-            if ticks % gravity == 0 && ticks > 0 {
-                position[1] += 1;
-            }
+            //corrected_pos = [position[0] + corrections[piece.rotation][0], position[1] + corrections[piece.rotation][1]];
 
             if shift_ticks > 0 {
                 if shift_ticks == 10 {
@@ -108,6 +110,7 @@ fn main() {
                 shift = 0;
                 shift_ticks -= 1;
             }
+            //corrected_pos = [position[0] + corrections[piece.rotation][0], position[1] + corrections[piece.rotation][1]];
 
             if rotate_ticks > 0 {
                 if rotate == 1 && rotate_ticks == 20 {
@@ -119,18 +122,44 @@ fn main() {
                 rotate = 0;
                 rotate_ticks -= 1;
             }
+            corrected_pos = [position[0] + corrections[piece.rotation][0], position[1] + corrections[piece.rotation][1]];
+            
+            if position[1] + i32::try_from(piece.reach[3]).unwrap() >= i32::try_from(SIZE[1]).unwrap() {
+                for point in piece.points {
+                    map[usize::try_from(corrected_pos[1] + point[1]).unwrap()][usize::try_from(corrected_pos[0] + point[0]).unwrap()] = 1;
+                }
+                piece = create_piece(rng.gen_range(0..5)).unwrap();
+                position = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)) as i32, piece.reach[1] as i32];
+                ticks = 0;
+            } else {
+                if ticks % gravity == 0 && ticks > 0 {
+                    position[1] += 1;
+                }
+                ticks += 1;
+            }
+            corrected_pos = [position[0] + corrections[piece.rotation][0], position[1] + corrections[piece.rotation][1]];
 
             canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
 
             canvas.set_draw_color(Color::RGB(0, 0, 255));
-            for point in piece.points.iter() {
-                canvas.fill_rect(Rect::new((position[0] + point[0]) * i32::from(TILE_SIZE), (position[1] + point[1]) * i32::from(TILE_SIZE), TILE_SIZE.into(), TILE_SIZE.into())).unwrap();
+            for point in piece.points {
+                canvas.fill_rect(Rect::new((corrected_pos[0] + point[0]) * TILE_SIZE as i32, (corrected_pos[1] + point[1]) * TILE_SIZE as i32, TILE_SIZE.into(), TILE_SIZE.into())).unwrap();
             }
-
+            let mut empty: bool;
+            for y in (0..SIZE[1]).rev() {
+                empty = true;
+                for x in 0..SIZE[0] {
+                    if map[y][x] == 1 {
+                        canvas.fill_rect(Rect::new(x as i32 * TILE_SIZE as i32, y as i32 * TILE_SIZE as i32, TILE_SIZE.into(), TILE_SIZE.into())).unwrap();
+                        empty = false;
+                    }
+                }
+                if empty {
+                    break;
+                }
+            }
             canvas.present();
-            
-            ticks += 1;
         }
     }
 }
