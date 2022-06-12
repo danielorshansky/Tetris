@@ -4,6 +4,7 @@ use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Scancode;
+use sdl2::image::{self, InitFlag, LoadTexture};
 
 const TILE_SIZE: u8 = 40;
 const SIZE: [usize; 2] = [10, 20];
@@ -40,7 +41,7 @@ fn rotate_piece(piece: &mut Piece, direction: i32) { // rotate, -1 direction is 
 
 fn check_rotation(piece: &Piece, position: &[i32; 2], map: &[[u8; SIZE[0]]; SIZE[1]], direction: i32) -> bool { // check if rotation will cause collision
     for point in &piece.points {
-        if map[(position[1] + direction * point[0]) as usize][(position[0] - direction * point[1]) as usize] == 1 {
+        if map[(position[1] + direction * point[0]) as usize][(position[0] - direction * point[1]) as usize] != 0 {
             return false;
         }
     }
@@ -49,7 +50,12 @@ fn check_rotation(piece: &Piece, position: &[i32; 2], map: &[[u8; SIZE[0]]; SIZE
 
 fn main() {
     let context = sdl2::init().unwrap();
-    let mut canvas = context.video().unwrap().window("Tetris", 400, 800).position_centered().opengl().build().unwrap().into_canvas().build().unwrap();
+    let video_subsystem = context.video().unwrap();
+    let _image_context = image::init(InitFlag::PNG | InitFlag::JPG).unwrap();
+    let window = video_subsystem.window("Tetris", 400, 800).position_centered().opengl().build().unwrap();
+    let mut canvas = window.into_canvas().build().unwrap();
+    let texture_creator = canvas.texture_creator();
+    let spritesheet = texture_creator.load_texture("src/spritesheet.png").unwrap();
 
     canvas.clear();
     canvas.present();
@@ -57,6 +63,8 @@ fn main() {
     let mut rng = rand::thread_rng();
     let mut piece = create_piece(rng.gen_range(0..5)).unwrap();
     let mut position: [i32; 2] = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)) as i32, piece.reach[1] as i32];
+    let mut sprite = rng.gen_range(1..16);
+    let mut sprite_rect = Rect::new((sprite as i32 - 1) * TILE_SIZE as i32, 0, TILE_SIZE as u32, TILE_SIZE as u32);
     let mut events = context.event_pump().unwrap();
     let mut time = Instant::now();
     let mut ticks = 0;
@@ -113,7 +121,7 @@ fn main() {
                     if position[0] - piece.reach[0] as i32 + shift >= 0 && position[0] + piece.reach[2] as i32 + shift <= SIZE[0] as i32 {
                         let mut collided = false;
                         for point in &piece.points {
-                            if map[(corrected_pos[1] + point[1]) as usize][(corrected_pos[0] + point[0] + shift) as usize] == 1 {
+                            if map[(corrected_pos[1] + point[1]) as usize][(corrected_pos[0] + point[0] + shift) as usize] != 0 {
                                 collided = true;
                                 shift_ticks = 0;
                                 break;
@@ -157,7 +165,7 @@ fn main() {
             let dead = position[1] + piece.reach[3] as i32 >= SIZE[1] as i32;
             if !dead {
                 for point in &piece.points {
-                    if map[(corrected_pos[1] + point[1] + 1) as usize][(corrected_pos[0] + point[0]) as usize] == 1 {
+                    if map[(corrected_pos[1] + point[1] + 1) as usize][(corrected_pos[0] + point[0]) as usize] != 0 {
                         collided = true;
                         break;
                     }
@@ -171,7 +179,7 @@ fn main() {
                 if dead || collided {
                     for point in &piece.points {
                         if corrected_pos[1] + point[1] > 0 {
-                            map[(corrected_pos[1] + point[1]) as usize][(corrected_pos[0] + point[0]) as usize] = 1;
+                            map[(corrected_pos[1] + point[1]) as usize][(corrected_pos[0] + point[0]) as usize] = sprite;
                         } else {
                             game_over = true;
                             break;
@@ -179,13 +187,12 @@ fn main() {
                     }
                     let mut rows: Vec<usize> = vec![];
                     for i in 0..SIZE[1] {
-                        if map[i] == [1; SIZE[0]] {
+                        if !map[i].contains(&0) {
                             let mut distance = 0;
                             if rows.is_empty() {
                                 map[i] = [0; SIZE[0]];
                             } else {
                                 for row in rows.iter_mut().rev() {
-                                    println!("2: {}", distance);
                                     map[i - distance] = map[*row];
                                     map[*row] = [0; SIZE[0]];
                                     *row = i - distance;
@@ -198,6 +205,8 @@ fn main() {
                     }
                     piece = create_piece(rng.gen_range(0..5)).unwrap();
                     position = [rng.gen_range(piece.reach[0]..(SIZE[0] - piece.reach[2] + 1)) as i32, piece.reach[1] as i32];
+                    sprite = rng.gen_range(1..16);
+                    sprite_rect = Rect::new((sprite as i32 - 1) * TILE_SIZE as i32, 0, TILE_SIZE as u32, TILE_SIZE as u32);
                     ticks = 0;
                     shift_ticks = 0;
                     rotate_ticks = 0;
@@ -215,16 +224,15 @@ fn main() {
             canvas.set_draw_color(Color::RGB(0, 0, 0));
             canvas.clear();
 
-            canvas.set_draw_color(Color::RGB(0, 0, 255));
             for point in &piece.points {
-                canvas.fill_rect(Rect::new((corrected_pos[0] + point[0]) * TILE_SIZE as i32, (corrected_pos[1] + point[1]) * TILE_SIZE as i32, TILE_SIZE as u32, TILE_SIZE as u32)).unwrap();
+                canvas.copy(&spritesheet, sprite_rect, Rect::new((corrected_pos[0] + point[0]) * TILE_SIZE as i32, (corrected_pos[1] + point[1]) * TILE_SIZE as i32, TILE_SIZE as u32, TILE_SIZE as u32)).unwrap();
             }
             let mut empty: bool;
             for y in (0..SIZE[1]).rev() {
                 empty = true;
                 for x in 0..SIZE[0] {
-                    if map[y][x] == 1 {
-                        canvas.fill_rect(Rect::new(x as i32 * TILE_SIZE as i32, y as i32 * TILE_SIZE as i32, TILE_SIZE as u32, TILE_SIZE as u32)).unwrap();
+                    if map[y][x] != 0 {
+                        canvas.copy(&spritesheet, Rect::new((map[y][x] as i32 - 1) * TILE_SIZE as i32, 0, TILE_SIZE as u32, TILE_SIZE as u32), Rect::new(x as i32 * TILE_SIZE as i32, y as i32 * TILE_SIZE as i32, TILE_SIZE as u32, TILE_SIZE as u32)).unwrap();
                         empty = false;
                     }
                 }
